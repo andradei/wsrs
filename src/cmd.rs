@@ -1,20 +1,34 @@
+extern crate serde;
+extern crate serde_json;
+
+use std::fs::File;
+use std::io::{
+    Error as IoError,
+    Read,
+};
+
+use self::serde_json::Error;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Workspace {
+    name: String,
+    path: String, // might have to be a std::path::Path
+}
+
 /// List of possible errors.
 pub enum ErrorKind {
     CommandNotFound,
     WorkspaceNotFound,
     WorkspaceRequired,
     TooManyArgs,
+    DataReadError(&'static str),
 }
-
-/// Type alias for semantic assistance. It helps convey what the meaning that certain
-/// Command variants take a String that represents a workspace (a directory path).
-type Workspace = String;
 
 /// Possible commands accepted as input.
 #[derive(Debug)]
 pub enum Command {
-    Create(Workspace),
-    Delete(Workspace),
+    Create(String),
+    Delete(String),
     List,
     Help,
     Version,
@@ -54,7 +68,7 @@ impl Command {
     /// doesn't exist or is not passed valid arguments.
     pub fn new(mut args: ::std::env::Args) -> Result<Command, ErrorKind> {
         // Skip the first argument because it is the fully qualified program name.
-        if let None = args.next() {
+        if args.next().is_none() {
             return Err(ErrorKind::CommandNotFound)
         }
 
@@ -89,7 +103,15 @@ Commands:
         Create a new workspace with <name>.
     delete | d | remove | rm <name>
         Delete the workspace for <name>.
-        ", version());
+
+Examples:
+    Create workspace
+        ws create my_project
+    Delete workspace
+        ws delete my_project
+    Go to workspace
+        cd $(ws my_project)
+", version());
 
         match self {
             Command::Create(ws) => {
@@ -103,10 +125,25 @@ Commands:
                 // TODO: Delete workspace
             },
             Command::List => {
-                println!("list");
+                // Get the contents of the data file into a String.
+                let path_str = format!("{}/.config/ws/ws.json", env!("HOME"));
+                let mut ws_file = File::open(path_str)?;
+                let mut content = String::with_capacity(500);
+                ws_file.read_to_string(&mut content)?;
+
+                // Try to deserialize the contents of data file.
+                if let Ok(workspaces) = serde_json::from_str::<Vec<Workspace>>(&content) {
+                    // Print the workspaces.
+                    for ws in workspaces {
+                        // TODO: Print with color. use termcolor or equivalent.
+                        println!("  {}\n    {}", ws.name, ws.path);
+                    }
+                } else {
+                    return Err(ErrorKind::DataReadError("error deserializing workspace"));
+                }
             },
             Command::Help => {
-                // TODO: Print help with color
+                // TODO: Print help with color. Use termcolor of equivalent.
                 println!("{}", help_msg);
             },
             Command::Version => {
@@ -119,4 +156,10 @@ Commands:
 
 fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+impl ::std::convert::From<IoError> for ErrorKind {
+    fn from(_: IoError) -> Self {
+        ErrorKind::DataReadError("data file couldn't be read or found")
+    }
 }
