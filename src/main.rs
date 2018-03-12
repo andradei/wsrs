@@ -19,12 +19,11 @@ fn main() {
 fn exit(kind: &ErrorKind) -> ! {
     let msg: &'static str;
     match *kind {
-        ErrorKind::CommandNotFound => msg = "command not found",
-        ErrorKind::WorkspaceNotFound => msg = "workspace not found",
-        ErrorKind::WorkspaceRequired => msg = "please provide a workspace",
-        ErrorKind::TooManyArgs => msg = "too many arguments, check \"ws help\"",
-        ErrorKind::DataReadError(e) => msg = e,
+        ErrorKind::CommandNotFound => eprintln!("command not found"),
+        ErrorKind::WorkspaceNotFound(ref ws) => eprintln!("workspace {} not found", ws),
+        ErrorKind::WorkspaceRequired => eprintln!("please provide a workspace"),
+        ErrorKind::TooManyArgs => eprintln!("too many arguments, check \"ws help\""),
+        ErrorKind::DataReadError(e) => eprintln!("{}", e),
     }
-    eprintln!("{}", msg);
     std::process::exit(1);
 }

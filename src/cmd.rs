@@ -22,7 +22,7 @@ struct Workspace {
 /// List of possible errors.
 pub enum ErrorKind {
     CommandNotFound,
-    WorkspaceNotFound,
+    WorkspaceNotFound(String),
     WorkspaceRequired,
     TooManyArgs,
     DataReadError(&'static str),
@@ -108,7 +108,16 @@ Examples:
                 // TODO: Check workspace exists
                 // TODO: Delete workspace
             },
-            Command::Goto(ws) => println!("goto: {}", ws),
+            Command::Goto(ws) => {
+                if let Ok(workspaces) = Self::get_ws_data() {
+                    match workspaces.iter().find(|w| w.name == ws) {
+                        Some(x) => println!("{}", x.path),
+                        None => return Err(ErrorKind::WorkspaceNotFound(ws)),
+                    }
+                } else {
+                    return Err(ErrorKind::WorkspaceNotFound(ws))
+                }
+            }
             Command::List => {
                 // Try to deserialize the contents of data file.
                 if let Ok(workspaces) = Self::get_ws_data() {
@@ -118,7 +127,7 @@ Examples:
                         println!("  {}\n    {}", ws.name, ws.path);
                     }
                 } else {
-                    return Err(ErrorKind::DataReadError("error deserializing workspace"));
+                    return Err(ErrorKind::DataReadError("error deserializing workspace"))
                 }
             },
             Command::Help => {
