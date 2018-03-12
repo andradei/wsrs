@@ -9,6 +9,10 @@ use std::io::{
 
 use self::serde_json::Error;
 
+fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Workspace {
     name: String,
@@ -24,50 +28,30 @@ pub enum ErrorKind {
     DataReadError(&'static str),
 }
 
+// Enable the Try trait to convert ErrorKind to std::io::Error when used to result a Result with ?.
+impl ::std::convert::From<IoError> for ErrorKind {
+    fn from(_: IoError) -> Self {
+        ErrorKind::DataReadError("data file couldn't be read or found")
+    }
+}
+
 /// Possible commands accepted as input.
 #[derive(Debug)]
 pub enum Command {
     Create(String),
     Delete(String),
+    Goto(String),
     List,
     Help,
     Version,
 }
 
 impl Command {
-    /// Delegate that returns a command variant or an error when the command doesn't exist or is
-    /// not passed valid arguments.
-    fn find_cmd(mut args: ::std::env::Args) -> Result<Command, ErrorKind> {
-        if let Some(cmd) = args.next() {
-            match cmd.as_str() {
-                "list" | "ls" | "l" => Ok(Command::List),
-                "help" | "h" => Ok(Command::Help),
-                "version" | "v" => Ok(Command::Version),
-                "create" | "c" | "new" | "n" | "insert" | "i" => {
-                    if let Some(ws) = args.next() {
-                        Ok(Command::Create(ws))
-                    } else {
-                        Err(ErrorKind::WorkspaceRequired)
-                    }
-                },
-                "delete" | "d" | "remove" | "rm" => {
-                    if let Some(ws) = args.next() {
-                        Ok(Command::Delete(ws))
-                    } else {
-                        Err(ErrorKind::WorkspaceRequired)
-                    }
-                },
-                _ => Err(ErrorKind::CommandNotFound),
-            }
-        } else {
-            Err(ErrorKind::CommandNotFound)
-        }
-    }
-
     /// Create a Command variant based on the input argument(s). Return an error when the command
     /// doesn't exist or is not passed valid arguments.
     pub fn new(mut args: ::std::env::Args) -> Result<Command, ErrorKind> {
         // Skip the first argument because it is the fully qualified program name.
+        // Also, it must exist otherwise something in the OS is very broken.
         if args.next().is_none() {
             return Err(ErrorKind::CommandNotFound)
         }
@@ -115,24 +99,19 @@ Examples:
 
         match self {
             Command::Create(ws) => {
-                println!("{}", ws);
+                println!("create: {}", ws);
                 // TODO: Check workspace exists
                 // TODO: Create workspace
             },
             Command::Delete(ws) => {
-                println!("{}", ws);
+                println!("delete: {}", ws);
                 // TODO: Check workspace exists
                 // TODO: Delete workspace
             },
+            Command::Goto(ws) => println!("goto: {}", ws),
             Command::List => {
-                // Get the contents of the data file into a String.
-                let path_str = format!("{}/.config/ws/ws.json", env!("HOME"));
-                let mut ws_file = File::open(path_str)?;
-                let mut content = String::with_capacity(500);
-                ws_file.read_to_string(&mut content)?;
-
                 // Try to deserialize the contents of data file.
-                if let Ok(workspaces) = serde_json::from_str::<Vec<Workspace>>(&content) {
+                if let Ok(workspaces) = Self::get_ws_data() {
                     // Print the workspaces.
                     for ws in workspaces {
                         // TODO: Print with color. use termcolor or equivalent.
@@ -148,18 +127,57 @@ Examples:
             },
             Command::Version => {
                 println!("{}", version());
-            }
+            },
         }
         Ok(())
     }
-}
 
-fn version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
-}
+    /// Delegate that returns a command variant or an error when the command doesn't exist or is
+    /// not passed valid arguments.
+    fn find_cmd(mut args: ::std::env::Args) -> Result<Command, ErrorKind> {
+        if let Some(cmd) = args.next() {
+            match cmd.as_str() {
+                "list" | "ls" | "l" => Ok(Command::List),
+                "help" | "h" => Ok(Command::Help),
+                "version" | "v" => Ok(Command::Version),
+                "create" | "c" | "new" | "n" | "insert" | "i" => {
+                    if let Some(ws) = args.next() {
+                        Ok(Command::Create(ws))
+                    } else {
+                        Err(ErrorKind::WorkspaceRequired)
+                    }
+                },
+                "delete" | "d" | "remove" | "rm" => {
+                    if let Some(ws) = args.next() {
+                        Ok(Command::Delete(ws))
+                    } else {
+                        Err(ErrorKind::WorkspaceRequired)
+                    }
+                },
+                // Treat cmd as a workspace to go to.
+                _ => {
+                    if args.len() > 1 {
+                        Err(ErrorKind::TooManyArgs)
+                    } else {
+                        Ok(Command::Goto(cmd))
+                    }
+                }
+            }
+        } else {
+            Err(ErrorKind::CommandNotFound)
+        }
+    }
 
-impl ::std::convert::From<IoError> for ErrorKind {
-    fn from(_: IoError) -> Self {
-        ErrorKind::DataReadError("data file couldn't be read or found")
+    /// Try to retrieve the JSON workspaces data from the config file. If successful, try to result
+    /// a deserialized Vec<Workspace> of them. It can return an std::io::Error if the file can't be
+    /// found or read.
+    fn get_ws_data() -> Result<Vec<Workspace>, IoError> {
+        // Get the contents of the data file into a String.
+        let path_str = format!("{}/.config/ws/ws.json", env!("HOME"));
+        let mut ws_file = File::open(path_str)?;
+        let mut content = String::with_capacity(500);
+        ws_file.read_to_string(&mut content)?;
+
+        Ok(serde_json::from_str(&content)?)
     }
 }
