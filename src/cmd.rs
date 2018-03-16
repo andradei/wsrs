@@ -5,15 +5,16 @@ use std::fs::File;
 use std::io::{
     Error as IoError,
     Read,
+    Write,
 };
 
-use self::serde_json::Error;
-
+/// Retrieve the program's version from Cargo.toml.
 fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+/// Represent a workspace entry found in ws.json.
+#[derive(Serialize, Deserialize)]
 struct Workspace {
     name: String,
     path: String, // might have to be a std::path::Path
@@ -24,11 +25,12 @@ pub enum ErrorKind {
     CommandNotFound,
     WorkspaceNotFound(String),
     WorkspaceRequired,
+    WorkspaceAlreadyExist(String),
     TooManyArgs,
     DataReadError(&'static str),
 }
 
-// Enable the Try trait to convert ErrorKind to std::io::Error when used to result a Result with ?.
+/// Enable the Try trait to convert ErrorKind to std::io::Error when used to result a Result with ?.
 impl ::std::convert::From<IoError> for ErrorKind {
     fn from(_: IoError) -> Self {
         ErrorKind::DataReadError("data file couldn't be read or found")
@@ -67,7 +69,62 @@ impl Command {
     }
 
     pub fn run(self) -> Result<(), ErrorKind> {
-        let help_msg: &str = &format!("
+        match self {
+            Command::Create(ws) => {
+                let mut workspaces = Self::get_ws_data()?;
+
+                // If workspace with name ws is found, return error.
+                if let Some(_) = workspaces.iter().find(|w| w.name == ws) {
+                    return Err(ErrorKind::WorkspaceAlreadyExist(ws))
+                }
+
+                let current_dir = ::std::env::current_dir()?;
+
+                if let Some(path) = current_dir.to_str() {
+                    workspaces.push(Workspace{
+                        name: ws,
+                        path: String::from(path),
+                    });
+
+                    Self::save_ws_data(workspaces)?;
+                } else {
+                    return Err(ErrorKind::DataReadError("error capturing working directory"))
+                }
+            },
+            Command::Delete(ws) => {
+                let mut workspaces = Self::get_ws_data()?;
+
+                // If workspace with name ws isn't found, return error.
+                if let Some(i) = workspaces.iter().position(|w| w.name == ws) {
+                    workspaces.remove(i);
+
+                    Self::save_ws_data(workspaces)?;
+
+                    return Ok(())
+                }
+
+                return Err(ErrorKind::WorkspaceNotFound(ws))
+            },
+            Command::Goto(ws) => {
+                let workspaces = Self::get_ws_data()?;
+
+                // If workspace with name ws isn't found, return error.
+                match workspaces.iter().find(|w| w.name == ws) {
+                    Some(x) => println!("{}", x.path),
+                    None => return Err(ErrorKind::WorkspaceNotFound(ws)),
+                }
+            }
+            Command::List => {
+                // Try to deserialize the contents of data file.
+                let workspaces = Self::get_ws_data()?;
+                for ws in workspaces {
+                    // TODO: Print with color. use termcolor or equivalent.
+                    println!("  {}\n    {}", ws.name, ws.path);
+                }
+            },
+            Command::Help => {
+                // TODO: Print help with color. Use termcolor of equivalent.
+                println!("
 ws {}
 Isaac Andrade <isaac.nic@gmail.com>
 
@@ -96,43 +153,6 @@ Examples:
     Go to workspace
         cd $(ws my_project)
 ", version());
-
-        match self {
-            Command::Create(ws) => {
-                println!("create: {}", ws);
-                // TODO: Check workspace exists
-                // TODO: Create workspace
-            },
-            Command::Delete(ws) => {
-                println!("delete: {}", ws);
-                // TODO: Check workspace exists
-                // TODO: Delete workspace
-            },
-            Command::Goto(ws) => {
-                if let Ok(workspaces) = Self::get_ws_data() {
-                    match workspaces.iter().find(|w| w.name == ws) {
-                        Some(x) => println!("{}", x.path),
-                        None => return Err(ErrorKind::WorkspaceNotFound(ws)),
-                    }
-                } else {
-                    return Err(ErrorKind::WorkspaceNotFound(ws))
-                }
-            }
-            Command::List => {
-                // Try to deserialize the contents of data file.
-                if let Ok(workspaces) = Self::get_ws_data() {
-                    // Print the workspaces.
-                    for ws in workspaces {
-                        // TODO: Print with color. use termcolor or equivalent.
-                        println!("  {}\n    {}", ws.name, ws.path);
-                    }
-                } else {
-                    return Err(ErrorKind::DataReadError("error deserializing workspace"))
-                }
-            },
-            Command::Help => {
-                // TODO: Print help with color. Use termcolor of equivalent.
-                println!("{}", help_msg);
             },
             Command::Version => {
                 println!("{}", version());
@@ -177,16 +197,40 @@ Examples:
         }
     }
 
-    /// Try to retrieve the JSON workspaces data from the config file. If successful, try to result
-    /// a deserialized Vec<Workspace> of them. It can return an std::io::Error if the file can't be
-    /// found or read.
-    fn get_ws_data() -> Result<Vec<Workspace>, IoError> {
-        // Get the contents of the data file into a String.
+    /// Convenience function that tries to return the workspaces JSON data file.
+    fn get_ws_file() -> Result<File, IoError> {
+        use std::fs::OpenOptions;
+
         let path_str = format!("{}/.config/ws/ws.json", env!("HOME"));
-        let mut ws_file = File::open(path_str)?;
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path_str)
+    }
+
+    /// Try to retrieve the JSON workspaces data from the config file. If successful, try to result
+    /// a deserialized Vec<Workspace> of them.
+    fn get_ws_data() -> Result<Vec<Workspace>, IoError> {
+        let mut ws_file = Self::get_ws_file()?;
+        // A pre-allocated buffer might improve initial performance by avoiding an allocation.
         let mut content = String::with_capacity(500);
+
+        // Get the contents of the data file into a String.
         ws_file.read_to_string(&mut content)?;
 
         Ok(serde_json::from_str(&content)?)
+    }
+
+    /// Try to serialize `workspaces` and write it to the JSON metadata file.
+    fn save_ws_data(workspaces: Vec<Workspace>) -> Result<(), IoError> {
+        let mut ws_file = Self::get_ws_file()?;
+        // Try to serialze workspaces.
+        let data = serde_json::to_string_pretty(&workspaces)?;
+
+        // Truncate the file before rewriting the new JSON object with a new worskpace.
+        ws_file.set_len(0)?;
+        // Try to write data to metadata file.
+        ws_file.write_all(data.as_ref())
     }
 }
