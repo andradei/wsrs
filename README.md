@@ -13,6 +13,7 @@ The intention of this project was to:
 Conclusions:
 
 - Rust can be more readable than Go for small projects
+- The compiler has the most useful messages, matching the strictness of ownership and borrowing
 - `enum`s are a nice feature to have
 - The type systems is very robust, but hard to first understand
 - Error handling is still not great (same for Go) even though it is compile-time-checked
