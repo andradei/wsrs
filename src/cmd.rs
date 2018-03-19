@@ -1,3 +1,4 @@
+extern crate colored;
 extern crate serde;
 extern crate serde_json;
 
@@ -7,6 +8,8 @@ use std::io::{
     Read,
     Write,
 };
+
+use self::colored::*;
 
 /// Retrieve the program's version from Cargo.toml.
 fn version() -> &'static str {
@@ -118,41 +121,59 @@ impl Command {
                 // Try to deserialize the contents of data file.
                 let workspaces = Self::get_ws_data()?;
                 for ws in workspaces {
-                    // TODO: Print with color. use termcolor or equivalent.
-                    println!("  {}\n    {}", ws.name, ws.path);
+                    println!("  {}\n    {}", ws.name.yellow(), ws.path.white());
                 }
             },
             Command::Help => {
-                // TODO: Print help with color. Use termcolor of equivalent.
-                println!("
-ws {}
-Isaac Andrade <isaac.nic@gmail.com>
+                println!("ws - Directory alias manager ({})", version());
+                println!("{} {}", "Isaac Andrade".white(), "<isaac.nic@gmail.com>".cyan());
+                println!("\n{}", "Usage:".green());
+                println!("    {} <{} [{}]> | <{}>",
+                         "ws".yellow(),
+                         "command".yellow(),
+                         "workspace".yellow(),
+                         "workspace".yellow());
+                println!("\n{}", "Commands:".green());
+                println!("    {} | {} | {}",
+                         "list".yellow(),
+                         "ls".yellow(),
+                         "l".yellow());
+                println!("        List all workspaces.");
+                println!("    {} | {}",
+                         "help".yellow(),
+                         "h".yellow());
+                println!("        Display this help message. Shortcut 'ws'.");
+                println!("    {} | {}",
+                         "version".yellow(),
+                         "v".yellow());
+                println!("        Display ws version.");
+                println!("    {} | {} | {} | {} | {} | {} <{}>",
+                         "create".yellow(),
+                         "c".yellow(),
+                         "new".yellow(),
+                         "n".yellow(),
+                         "insert".yellow(),
+                         "i".yellow(),
+                         "name".yellow());
+                println!("        Create a new workspace with <name>.");
+                println!("    {} | {} | {} | {} <{}>",
+                         "delete".yellow(),
+                         "d".yellow(),
+                         "remove".yellow(),
+                         "rm".yellow(),
+                         "name".yellow());
+                println!("        Delete the workspace for <name>.");
 
-ws is a workspace list manager.
-
-Usage:
-    ws <command> [workspace] | <workspace>
-
-Commands:
-    list | ls | l
-        List all workspaces.
-    help | h
-        Display this help message. Shortcut 'ws'.
-    version | v
-        Display ws version.
-    create | c | new | n | insert | i <name>
-        Create a new workspace with <name>.
-    delete | d | remove | rm <name>
-        Delete the workspace for <name>.
-
-Examples:
-    Create workspace
-        ws create my_project
-    Delete workspace
-        ws delete my_project
-    Go to workspace
-        cd $(ws my_project)
-", version());
+                println!("\n{}", "Examples:".green());
+                println!("    {}\n        {}",
+                         "Create workspace:".yellow(),
+                         "ws create my_project".white());
+                println!("    {}\n        {}",
+                         "Delete workspace:".yellow(),
+                         "ws delete my_project".white());
+                println!("    {}\n        {}",
+                         "Go to workspace:".yellow(),
+                         "cd $(ws my_project)".white());
             },
             Command::Version => {
                 println!("{}", version());
