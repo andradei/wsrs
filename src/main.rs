@@ -1,5 +1,3 @@
-#[macro_use] extern crate serde_derive;
-
 mod cmd;
 
 use cmd::{Command, ErrorKind};

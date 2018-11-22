@@ -1,5 +1,6 @@
 extern crate colored;
 extern crate serde;
+extern crate serde_derive;
 extern crate serde_json;
 
 use std::fs::File;
@@ -10,6 +11,7 @@ use std::io::{
 };
 
 use self::colored::*;
+use self::serde_derive::{Deserialize, Serialize};
 
 /// Retrieve the program's version from Cargo.toml.
 fn version() -> &'static str {
