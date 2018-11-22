@@ -77,7 +77,7 @@ impl Command {
                 let mut workspaces = Self::get_ws_data()?;
 
                 // If workspace with name ws is found, return error.
-                if let Some(_) = workspaces.iter().find(|w| w.name == ws) {
+                if workspaces.iter().any(|w| w.name == ws) {
                     return Err(ErrorKind::WorkspaceAlreadyExist(ws))
                 }
 
@@ -89,7 +89,7 @@ impl Command {
                         path: String::from(path),
                     });
 
-                    Self::save_ws_data(workspaces)?;
+                    Self::save_ws_data(&workspaces)?;
                 } else {
                     return Err(ErrorKind::DataReadError("error capturing working directory"))
                 }
@@ -101,7 +101,7 @@ impl Command {
                 if let Some(i) = workspaces.iter().position(|w| w.name == ws) {
                     workspaces.remove(i);
 
-                    Self::save_ws_data(workspaces)?;
+                    Self::save_ws_data(&workspaces)?;
 
                     return Ok(())
                 }
@@ -244,7 +244,7 @@ impl Command {
     }
 
     /// Try to serialize `workspaces` and write it to the JSON metadata file.
-    fn save_ws_data(workspaces: Vec<Workspace>) -> Result<(), IoError> {
+    fn save_ws_data(workspaces: &[Workspace]) -> Result<(), IoError> {
         let mut ws_file = Self::get_ws_file()?;
         // Try to serialze workspaces.
         let data = serde_json::to_string_pretty(&workspaces)?;

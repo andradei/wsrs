@@ -15,9 +15,9 @@ Conclusions:
 - Rust can be more readable than Go for small projects
 - The compiler has the most useful messages, matching the strictness of ownership and borrowing
 - `enum`s are a nice feature to have
-- The type systems is very robust, but hard to first understand
+- The type system is very robust, but hard to first understand
 - Error handling is still not great (same for Go) even though it is compile-time-checked
 - Cargo is a great tool for project and dependency management
-- The current module/crate/import system is weird (should be fixed on the next Rust epoch)
+- The current module/crate/import system is weird (should be fixed on the Rust 2018 edition)
 
 This was a great experiment and I learned much more that what is listed above.
