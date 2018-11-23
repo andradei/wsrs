@@ -3,20 +3,17 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use std::convert::From;
-use std::fs::File;
-use std::io::{
-    Error as IoError,
-    Read,
-    Write,
-};
-use std::env::{
-    Args,
-    current_dir,
+use std::{
+    convert::From,
+    env::{current_dir, Args},
+    fs::File,
+    io::{Error as IoError, Read, Write},
 };
 
-use self::colored::*;
-use self::serde_derive::{Deserialize, Serialize};
+use self::{
+    colored::*,
+    serde_derive::{Deserialize, Serialize},
+};
 
 /// Retrieve the program's version from Cargo.toml.
 fn version() -> &'static str {
@@ -32,7 +29,6 @@ struct Workspace {
 
 /// List of possible errors.
 pub enum ErrorKind {
-    CommandNotFound,
     WorkspaceNotFound(String),
     WorkspaceRequired,
     WorkspaceAlreadyExist(String),
@@ -63,17 +59,12 @@ impl Command {
     /// doesn't exist or is not passed valid arguments.
     pub fn new(mut args: Args) -> Result<Command, ErrorKind> {
         // Skip the first argument because it is the fully qualified program name.
-        // Also, it must exist otherwise something in the OS is very broken.
-        if args.next().is_none() {
-            return Err(ErrorKind::CommandNotFound)
-        }
+        args.next();
 
         match args.len() {
             // Show help message as a conviniente to the user. Same as typing `ws help`.
             0 => Ok(Command::Help),
-            1 ... 2 => {
-                Self::find_cmd(args)
-            },
+            1...2 => Self::find_cmd(args),
             _ => Err(ErrorKind::TooManyArgs),
         }
     }
@@ -86,22 +77,24 @@ impl Command {
 
                 // If workspace with name ws is found, return error.
                 if workspaces.iter().any(|w| w.name == ws) {
-                    return Err(ErrorKind::WorkspaceAlreadyExist(ws))
+                    return Err(ErrorKind::WorkspaceAlreadyExist(ws));
                 }
 
                 let current_dir = current_dir()?;
 
                 if let Some(path) = current_dir.to_str() {
-                    workspaces.push(Workspace{
+                    workspaces.push(Workspace {
                         name: ws,
                         path: String::from(path),
                     });
 
                     Self::save_ws_data(&workspaces)?;
                 } else {
-                    return Err(ErrorKind::DataReadError("error capturing working directory"))
+                    return Err(ErrorKind::DataReadError(
+                        "error capturing working directory",
+                    ));
                 }
-            },
+            }
             Command::Delete(ws) => {
                 let mut workspaces = Self::get_ws_data()?;
 
@@ -111,11 +104,11 @@ impl Command {
 
                     Self::save_ws_data(&workspaces)?;
 
-                    return Ok(())
+                    return Ok(());
                 }
 
-                return Err(ErrorKind::WorkspaceNotFound(ws))
-            },
+                return Err(ErrorKind::WorkspaceNotFound(ws));
+            }
             Command::Goto(ws) => {
                 let workspaces = Self::get_ws_data()?;
 
@@ -131,61 +124,75 @@ impl Command {
                 for ws in workspaces {
                     println!("  {}\n    {}", ws.name.yellow(), ws.path.white());
                 }
-            },
+            }
             Command::Help => {
                 println!("ws - Directory alias manager ({})", version());
-                println!("{} {}", "Isaac Andrade".white(), "<isaac.nic@gmail.com>".cyan());
+                println!(
+                    "{} {}",
+                    "Isaac Andrade".white(),
+                    "<isaac.nic@gmail.com>".cyan()
+                );
                 println!("\n{}", "Usage:".green());
-                println!("    {} <{} [{}]> | <{}>",
-                         "ws".yellow(),
-                         "command".yellow(),
-                         "workspace".yellow(),
-                         "workspace".yellow());
+                println!(
+                    "    {} <{} [{}]> | <{}>",
+                    "ws".yellow(),
+                    "command".yellow(),
+                    "workspace".yellow(),
+                    "workspace".yellow()
+                );
                 println!("\n{}", "Commands:".green());
-                println!("    {} | {} | {}",
-                         "list".yellow(),
-                         "ls".yellow(),
-                         "l".yellow());
+                println!(
+                    "    {} | {} | {}",
+                    "list".yellow(),
+                    "ls".yellow(),
+                    "l".yellow()
+                );
                 println!("        List all workspaces.");
-                println!("    {} | {}",
-                         "help".yellow(),
-                         "h".yellow());
+                println!("    {} | {}", "help".yellow(), "h".yellow());
                 println!("        Display this help message. Shortcut 'ws'.");
-                println!("    {} | {}",
-                         "version".yellow(),
-                         "v".yellow());
+                println!("    {} | {}", "version".yellow(), "v".yellow());
                 println!("        Display ws version.");
-                println!("    {} | {} | {} | {} | {} | {} <{}>",
-                         "create".yellow(),
-                         "c".yellow(),
-                         "new".yellow(),
-                         "n".yellow(),
-                         "insert".yellow(),
-                         "i".yellow(),
-                         "name".yellow());
+                println!(
+                    "    {} | {} | {} | {} | {} | {} <{}>",
+                    "create".yellow(),
+                    "c".yellow(),
+                    "new".yellow(),
+                    "n".yellow(),
+                    "insert".yellow(),
+                    "i".yellow(),
+                    "name".yellow()
+                );
                 println!("        Create a new workspace with <name>.");
-                println!("    {} | {} | {} | {} <{}>",
-                         "delete".yellow(),
-                         "d".yellow(),
-                         "remove".yellow(),
-                         "rm".yellow(),
-                         "name".yellow());
+                println!(
+                    "    {} | {} | {} | {} <{}>",
+                    "delete".yellow(),
+                    "d".yellow(),
+                    "remove".yellow(),
+                    "rm".yellow(),
+                    "name".yellow()
+                );
                 println!("        Delete the workspace for <name>.");
 
                 println!("\n{}", "Examples:".green());
-                println!("    {}\n        {}",
-                         "Create workspace:".yellow(),
-                         "ws create my_project".white());
-                println!("    {}\n        {}",
-                         "Delete workspace:".yellow(),
-                         "ws delete my_project".white());
-                println!("    {}\n        {}",
-                         "Go to workspace:".yellow(),
-                         "cd $(ws my_project)".white());
-            },
+                println!(
+                    "    {}\n        {}",
+                    "Create workspace:".yellow(),
+                    "ws create my_project".white()
+                );
+                println!(
+                    "    {}\n        {}",
+                    "Delete workspace:".yellow(),
+                    "ws delete my_project".white()
+                );
+                println!(
+                    "    {}\n        {}",
+                    "Go to workspace:".yellow(),
+                    "cd $(ws my_project)".white()
+                );
+            }
             Command::Version => {
                 println!("{}", version());
-            },
+            }
         }
         Ok(())
     }
@@ -193,36 +200,33 @@ impl Command {
     /// Delegate that returns a command variant or an error when the command doesn't exist or is
     /// not passed valid arguments.
     fn find_cmd(mut args: Args) -> Result<Command, ErrorKind> {
-        if let Some(cmd) = args.next() {
-            match cmd.as_str() {
-                "list" | "ls" | "l" => Ok(Command::List),
-                "help" | "h" => Ok(Command::Help),
-                "version" | "v" => Ok(Command::Version),
-                "create" | "c" | "new" | "n" | "insert" | "i" => {
-                    if let Some(ws) = args.next() {
-                        Ok(Command::Create(ws))
-                    } else {
-                        Err(ErrorKind::WorkspaceRequired)
-                    }
-                },
-                "delete" | "d" | "remove" | "rm" => {
-                    if let Some(ws) = args.next() {
-                        Ok(Command::Delete(ws))
-                    } else {
-                        Err(ErrorKind::WorkspaceRequired)
-                    }
-                },
-                // Treat cmd as a workspace to go to.
-                _ => {
-                    if args.len() > 1 {
-                        Err(ErrorKind::TooManyArgs)
-                    } else {
-                        Ok(Command::Goto(cmd))
-                    }
+        let cmd = args.next().unwrap_or_default();
+        match cmd.as_str() {
+            "list" | "ls" | "l" => Ok(Command::List),
+            "help" | "h" => Ok(Command::Help),
+            "version" | "v" => Ok(Command::Version),
+            "create" | "c" | "new" | "n" | "insert" | "i" => {
+                if let Some(ws) = args.next() {
+                    Ok(Command::Create(ws))
+                } else {
+                    Err(ErrorKind::WorkspaceRequired)
                 }
             }
-        } else {
-            Err(ErrorKind::CommandNotFound)
+            "delete" | "d" | "remove" | "rm" => {
+                if let Some(ws) = args.next() {
+                    Ok(Command::Delete(ws))
+                } else {
+                    Err(ErrorKind::WorkspaceRequired)
+                }
+            }
+            // Treat cmd as a workspace to go to.
+            _ => {
+                if args.len() > 1 {
+                    Err(ErrorKind::TooManyArgs)
+                } else {
+                    Ok(Command::Goto(cmd))
+                }
+            }
         }
     }
 
