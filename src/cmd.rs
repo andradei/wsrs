@@ -3,11 +3,16 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
+use std::convert::From;
 use std::fs::File;
 use std::io::{
     Error as IoError,
     Read,
     Write,
+};
+use std::env::{
+    Args,
+    current_dir,
 };
 
 use self::colored::*;
@@ -36,7 +41,7 @@ pub enum ErrorKind {
 }
 
 /// Enable the Try trait to convert ErrorKind to std::io::Error when used to result a Result with ?.
-impl ::std::convert::From<IoError> for ErrorKind {
+impl From<IoError> for ErrorKind {
     fn from(_: IoError) -> Self {
         ErrorKind::DataReadError("data file couldn't be read or found")
     }
@@ -56,7 +61,7 @@ pub enum Command {
 impl Command {
     /// Create a Command variant based on the input argument(s). Return an error when the command
     /// doesn't exist or is not passed valid arguments.
-    pub fn new(mut args: ::std::env::Args) -> Result<Command, ErrorKind> {
+    pub fn new(mut args: Args) -> Result<Command, ErrorKind> {
         // Skip the first argument because it is the fully qualified program name.
         // Also, it must exist otherwise something in the OS is very broken.
         if args.next().is_none() {
@@ -73,6 +78,7 @@ impl Command {
         }
     }
 
+    // The main logic of the program.
     pub fn run(self) -> Result<(), ErrorKind> {
         match self {
             Command::Create(ws) => {
@@ -83,7 +89,7 @@ impl Command {
                     return Err(ErrorKind::WorkspaceAlreadyExist(ws))
                 }
 
-                let current_dir = ::std::env::current_dir()?;
+                let current_dir = current_dir()?;
 
                 if let Some(path) = current_dir.to_str() {
                     workspaces.push(Workspace{
@@ -186,7 +192,7 @@ impl Command {
 
     /// Delegate that returns a command variant or an error when the command doesn't exist or is
     /// not passed valid arguments.
-    fn find_cmd(mut args: ::std::env::Args) -> Result<Command, ErrorKind> {
+    fn find_cmd(mut args: Args) -> Result<Command, ErrorKind> {
         if let Some(cmd) = args.next() {
             match cmd.as_str() {
                 "list" | "ls" | "l" => Ok(Command::List),
