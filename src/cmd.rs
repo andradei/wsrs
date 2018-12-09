@@ -1,8 +1,3 @@
-extern crate colored;
-extern crate serde;
-extern crate serde_derive;
-extern crate serde_json;
-
 use std::{
     convert::From,
     env::{current_dir, Args},
@@ -10,10 +5,8 @@ use std::{
     io::{Error as IoError, Read, Write},
 };
 
-use self::{
-    colored::*,
-    serde_derive::{Deserialize, Serialize},
-};
+use colored::*;
+use serde_derive::{Deserialize, Serialize};
 
 /// Retrieve the program's version from Cargo.toml.
 fn version() -> &'static str {
@@ -57,7 +50,7 @@ pub enum Command {
 impl Command {
     /// Create a Command variant based on the input argument(s). Return an error when the command
     /// doesn't exist or is not passed valid arguments.
-    pub fn new(mut args: Args) -> Result<Command, ErrorKind> {
+    pub fn create(mut args: Args) -> Result<Command, ErrorKind> {
         // Skip the first argument because it is the fully qualified program name.
         args.next();
 

@@ -1,9 +1,9 @@
 mod cmd;
 
-use cmd::{Command, ErrorKind};
+use self::cmd::{Command, ErrorKind};
 
 fn main() {
-    match Command::new(std::env::args()) {
+    match Command::create(std::env::args()) {
         Ok(cmd) => {
             if let Err(e) = cmd.run() {
                 exit(&e)
@@ -15,7 +15,7 @@ fn main() {
 
 /// Print an error message based on error kind, then end the program.
 fn exit(kind: &ErrorKind) -> ! {
-    use cmd::ErrorKind::*;
+    use self::cmd::ErrorKind::*;
 
     match *kind {
         WorkspaceNotFound(ref ws) => eprintln!("workspace {} not found", ws),
